@@ -1,0 +1,8 @@
+# Create your private_config.yaml in the directory you want to place the jar in
+token: 'TOKEN' # Replace with your actual Telegram bot token
+database:
+  url: 'jdbc:postgresql://localhost:5432/your_database_name' # replace with your actual database URL
+  credentials: !<username_password> # !<username_password> or !<pgpass>
+    username: tf2soldier
+    password: 111ummm...1
+    # If using pgpass, don't specify password

@@ -1,69 +1,41 @@
 package org.vad1mchk.varargparse.mk2
 
-import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
-import com.github.kotlintelegrambot.dispatcher.callbackQuery
 import com.github.kotlintelegrambot.dispatcher.command
-import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.Message
-import com.github.kotlintelegrambot.logging.LogLevel
+import com.github.kotlintelegrambot.dispatcher.handlers.CommandHandlerEnvironment
+import com.github.kotlintelegrambot.dispatcher.newChatMembers
+import com.github.kotlintelegrambot.dispatcher.telegramError
+import org.vad1mchk.varargparse.mk2.commands.*
+import org.vad1mchk.varargparse.mk2.config.Config
+import org.vad1mchk.varargparse.mk2.database.connectToDatabase
+import org.vad1mchk.varargparse.mk2.database.initializeDatabase
+import org.vad1mchk.varargparse.mk2.entities.Interjection
 
 fun main(args: Array<String>) {
-    val bot = bot {
-        token = System.getenv("vap_TOKEN")
+    Config.loadPrivateConfigFromYaml(fileName = "private_config.yaml")
+    Config.loadPublicConfigFromYaml(fileName = "public_config.yaml")
 
-        logLevel = LogLevel.All()
+    val database = connectToDatabase()
+    initializeDatabase(database)
+
+    val bot = bot {
+        token = Config.privateConfig.token
 
         dispatch {
-            command("start") {
-                bot.sendMessage(
-                    chatId = message.chatId(),
-                    text = "Я живой!",
-                    allowSendingWithoutReply = true,
-                    replyToMessageId = message.messageId,
-                )
-            }
-
-            command("help") {
-                bot.sendMessage(
-                    chatId = message.chatId(),
-                    text = bot.getMyCommands().get().map {
-                        "/${it.command}: ${it.description}"
-                    }.joinToString("\n"),
-                    replyToMessageId = message.messageId,
-                    allowSendingWithoutReply = true
-                )
-            }
+            command("start", startCommand)
+            command("help", helpCommand)
 
             for (interjection in Interjection.entries) {
-                command(interjection.name.lowercase()) {
-                    bot.sendSticker(
-                        chatId = message.chatId(),
-                        sticker = interjection.fileId,
-                        disableNotification = false,
-                        replyToMessageId = message.replyToMessage?.messageId,
-                        allowSendingWithoutReply = true,
-                        replyMarkup = null
-                    )
-                }
+                command(interjection.name.lowercase(), interjectionCommand(interjection))
             }
 
-            command("newforce") {
-                bot.sendMessage(
-                    chatId = message.chatId(),
-                    replyToMessageId = message.messageId,
-                    text = """
-                        К сожалению, мой создатель сам не знает, что должна делать эта команда. 
-                        Но вы можете придумать!
-                    """.trimIndent()
-                )
-            }
+            command("get_quote", getQuoteCommand)
+            command("get_quotes", getLastFewQuotesCommand)
+
+            newChatMembers(greet)
         }
     }
-    bot.startPolling()
-}
 
-fun Message.chatId(): ChatId {
-    return ChatId.fromId(this.chat.id)
+    bot.startPolling()
 }
