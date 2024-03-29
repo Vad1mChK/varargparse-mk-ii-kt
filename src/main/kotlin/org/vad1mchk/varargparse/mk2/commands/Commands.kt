@@ -2,6 +2,7 @@ package org.vad1mchk.varargparse.mk2.commands
 
 import com.github.kotlintelegrambot.dispatcher.handlers.*
 import com.github.kotlintelegrambot.entities.*
+import com.github.kotlintelegrambot.entities.dice.DiceEmoji
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -9,13 +10,16 @@ import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.tables.Quotes
 import org.vad1mchk.varargparse.mk2.entities.Interjection
 import org.vad1mchk.varargparse.mk2.util.*
+import java.sql.SQLException
 
 private const val NEW_CHAT_MEMBER_LIST_COUNT = 5
 private const val DEFAULT_LAST_QUOTES_COUNT = 5
 
-private val COMMAND_REGEX = Regex("^\\s*/[0-9a-zA-Z_]*")
+private val COMMAND_REGEX = Regex("^\\s*/([0-9a-zA-Z_]+)(?:@[0-9a-zA-Z_]*)?")
 
 private val GET_QUOTES_COMMAND_REGEX = Regex(COMMAND_REGEX.pattern + "\\s+(\\d+)")
+
+private val ADD_QUOTE_COMMAND_REGEX = Regex(COMMAND_REGEX.pattern + "\\s(.*?)\\s*:\\s*(.*)")
 
 val greet: HandleNewChatMembers = {
     val newMembersNames = newChatMembers
@@ -97,7 +101,7 @@ val getQuoteCommand: HandleCommand = {
 
 val getLastFewQuotesCommand: HandleCommand = {
     val quoteCountToFind = message.text?.let {
-        GET_QUOTES_COMMAND_REGEX.find(it)?.groups?.also { println(it) }?.get(1)?.value?.toInt()
+        GET_QUOTES_COMMAND_REGEX.find(it)?.groups?.get(2)?.value?.toInt()
     } ?: DEFAULT_LAST_QUOTES_COUNT
 
     if (quoteCountToFind == 0) {
@@ -141,6 +145,53 @@ val getLastFewQuotesCommand: HandleCommand = {
                 replyToMessageId = message.messageId,
                 text = "Ни одной цитаты в таблице не найдено."
             )
+        }
+    }
+}
+
+val addQuoteCommand: HandleCommand = {
+    val submitterId = message.from?.id ?: throw IllegalArgumentException("Невозможно определить отправителя сообщения.")
+    try {
+        message.text?.let { text ->
+            val groups = ADD_QUOTE_COMMAND_REGEX.find(text)?.groups
+            // println(groups)
+            val authorName = groups?.get(2)?.value ?:
+                throw IllegalArgumentException("Невозможно определить автора цитаты.")
+            val quote = groups[3]?.value ?:
+                throw IllegalArgumentException("Невозможно определить текст цитаты.")
+
+            transaction {
+                Quotes.insert {
+                    it[Quotes.submitterId] = submitterId
+                    it[Quotes.authorName] = authorName
+                    it[Quotes.quote] = quote
+                }
+            }
+        }
+    } catch (e: Exception) {
+        when (e) {
+            is IllegalArgumentException -> {
+                bot.sendMessage(
+                    chatId = message.chatId(),
+                    replyToMessageId = message.messageId,
+                    text = """
+                        Невозможно сохранить цитату из-за некорректного ввода данных.
+                        Проверьте, что цитата введена в формате: `(автор): (текст цитаты)`.
+                    """.trimIndent(),
+                    parseMode = ParseMode.MARKDOWN
+                )
+            }
+            is SQLException -> {
+                bot.sendMessage(
+                    chatId = message.chatId(),
+                    replyToMessageId = message.messageId,
+                    text = """
+                        Невозможно сохранить цитату в базе данных.
+                        Возможно, цитата с таким автором и именем уже существует.
+                    """.trimIndent()
+                )
+            }
+            else -> throw e
         }
     }
 }

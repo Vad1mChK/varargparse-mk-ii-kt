@@ -21,8 +21,7 @@ fun connectToDatabase() = when (val creds = Config.privateConfig.database.creden
     is DatabaseCredentials.PgpassDatabaseCredentials -> {
         Database.connect(
             url = Config.privateConfig.database.url,
-            user = creds.username,
-            password = creds.password
+            user = creds.username
         )
     }
 }
@@ -30,5 +29,5 @@ fun connectToDatabase() = when (val creds = Config.privateConfig.database.creden
 fun initializeDatabase(database: Database) = transaction(database) {
     addLogger(StdOutSqlLogger)
 
-    SchemaUtils.create(Members, Quotes)
+    SchemaUtils.create(Quotes, Members)
 }

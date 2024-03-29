@@ -11,5 +11,5 @@ sealed interface DatabaseCredentials {
 
     @Serializable
     @SerialName("pgpass")
-    data class PgpassDatabaseCredentials(val username: String, val password: String) : DatabaseCredentials
+    data class PgpassDatabaseCredentials(val username: String) : DatabaseCredentials
 }
