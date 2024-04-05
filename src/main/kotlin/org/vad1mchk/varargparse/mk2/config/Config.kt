@@ -3,10 +3,9 @@ package org.vad1mchk.varargparse.mk2.config
 import com.charleskorn.kaml.PolymorphismStyle
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlConfiguration
-import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import org.jetbrains.exposed.sql.Database
 import org.vad1mchk.varargparse.mk2.exceptions.ConfigException
 import java.io.File
 import java.io.IOException
@@ -14,6 +13,7 @@ import java.io.IOException
 object Config {
     lateinit var privateConfig: PrivateConfig
     lateinit var publicConfig: PublicConfig
+    lateinit var database: Database
 
     private val configuration = YamlConfiguration(polymorphismStyle = PolymorphismStyle.Property)
 

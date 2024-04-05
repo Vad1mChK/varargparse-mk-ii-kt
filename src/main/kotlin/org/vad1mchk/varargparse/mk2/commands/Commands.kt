@@ -1,45 +1,23 @@
 package org.vad1mchk.varargparse.mk2.commands
 
-import com.github.kotlintelegrambot.dispatcher.handlers.*
-import com.github.kotlintelegrambot.entities.*
-import com.github.kotlintelegrambot.entities.dice.DiceEmoji
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.transactions.transaction
+import com.github.kotlintelegrambot.dispatcher.handlers.HandleCallbackQuery
+import com.github.kotlintelegrambot.dispatcher.handlers.HandleCommand
+import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
+import com.github.kotlintelegrambot.entities.ParseMode
+import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import org.vad1mchk.varargparse.mk2.config.Config
-import org.vad1mchk.varargparse.mk2.database.tables.Quotes
+import org.vad1mchk.varargparse.mk2.database.addRule
+import org.vad1mchk.varargparse.mk2.database.getRuleById
+import org.vad1mchk.varargparse.mk2.database.getRules
 import org.vad1mchk.varargparse.mk2.entities.Interjection
-import org.vad1mchk.varargparse.mk2.util.*
+import org.vad1mchk.varargparse.mk2.util.chatId
+import org.vad1mchk.varargparse.mk2.util.fullName
+import org.vad1mchk.varargparse.mk2.util.mentionMarkdown
 import java.sql.SQLException
 
-private const val NEW_CHAT_MEMBER_LIST_COUNT = 5
-private const val DEFAULT_LAST_QUOTES_COUNT = 5
-
-private val COMMAND_REGEX = Regex("^\\s*/([0-9a-zA-Z_]+)(?:@[0-9a-zA-Z_]*)?")
-
-private val GET_QUOTES_COMMAND_REGEX = Regex(COMMAND_REGEX.pattern + "\\s+(\\d+)")
-
-private val ADD_QUOTE_COMMAND_REGEX = Regex(COMMAND_REGEX.pattern + "\\s(.*?)\\s*:\\s*(.*)")
-
-val greet: HandleNewChatMembers = {
-    val newMembersNames = newChatMembers
-        .map { user -> user.mentionMarkdown(firstNameOnly = true) }
-        .joinToString(
-            limit = NEW_CHAT_MEMBER_LIST_COUNT,
-            truncated = " и ещё ${newChatMembers.size - NEW_CHAT_MEMBER_LIST_COUNT}"
-        )
-
-    bot.sendMessage(
-        chatId = message.chatId(),
-        replyToMessageId = message.messageId,
-        text = """
-            Привет, ${newMembersNames}!
-            
-            Пожалуйста, представьтесь и прочитайте правила клуба (в закрепе).
-            """.trimIndent(),
-        parseMode = ParseMode.MARKDOWN
-    )
-}
+private val NEW_RULE_REGEX = Regex("/([a-zA-Z0-9_]+(?:@[a-zA-Z0-9_]+)?)\\s+(.*)\\n\\s*((?:.|\\n)+)")
+private val USERNAME_REGEX = Regex("@[_A-Za-z][_0-9A-Za-z]*")
 
 val startCommand: HandleCommand = {
     bot.sendMessage(
@@ -69,145 +47,127 @@ val helpCommand: HandleCommand = {
     )
 }
 
-val getQuoteCommand: HandleCommand = {
-    val quoteResultRow = transaction {
-        Quotes.selectAll()
-            .orderBy(Random())
-            .limit(1)
-            .firstOrNull()
-    }
+val warnCommand: HandleCommand = outer@{
+    val warnVictimUsername = args.firstOrNull { USERNAME_REGEX.matchEntire(it) != null }
+        ?: (message.replyToMessage?.from?.username?.let { "@$it" })
 
-    if (quoteResultRow != null) {
-        val author = quoteResultRow[Quotes.authorName]
-        val text = quoteResultRow[Quotes.quote]
-
+    if (warnVictimUsername == null) {
         bot.sendMessage(
             chatId = message.chatId(),
             replyToMessageId = message.messageId,
             text = """
-                $text
+                Не удалось найти пользователя, которого нужно предупредить.
                 
-                ${'\u00a9'} $author
-            """.trimIndent()
+                Пожалуйста, ответьте на сообщение этого пользователя или напишите его ник в качестве аргумента команды.
+                
+                Рассматриваться будет только первый написанный ник, ник имеет приоритет над ответом.
+                """.trimIndent()
         )
-    } else {
-        bot.sendMessage(
-            chatId = message.chatId(),
-            replyToMessageId = message.messageId,
-            text = "Ни одной цитаты в таблице не найдено."
-        )
+        return@outer
     }
-}
 
-val getLastFewQuotesCommand: HandleCommand = {
-    val quoteCountToFind = message.text?.let {
-        GET_QUOTES_COMMAND_REGEX.find(it)?.groups?.get(2)?.value?.toInt()
-    } ?: DEFAULT_LAST_QUOTES_COUNT
-
-    if (quoteCountToFind == 0) {
-        bot.sendMessage(
-            chatId = message.chatId(),
-            replyToMessageId = message.messageId,
-            text = "Вы не попросили найти ни одной цитаты, поиск не требуется."
-        )
-    } else {
-        val quotes = transaction {
-            Quotes.selectAll()
-                .orderBy(Quotes.creationDateTime, SortOrder.DESC_NULLS_LAST)
-                .limit(quoteCountToFind)
-                .toList()
-        }
-
-        if (quotes.isNotEmpty()) {
-            val builder = StringBuilder()
-            builder.append("Несколько последних цитат (${quotes.size}):")
-
-            for (quoteResultRow in quotes) {
-                val author = quoteResultRow[Quotes.authorName]
-                val text = quoteResultRow[Quotes.quote]
-                val creationDateTime = quoteResultRow[Quotes.creationDateTime]
-
-                builder.append("\n\n")
-                builder.append("""
-                $text
-                ${'\u00a9'} $author (загружено ${creationDateTime.javaFormat(defaultDateTimeFormatter())})
-                """.trimIndent())
-            }
-
-            bot.sendMessage(
-                chatId = message.chatId(),
-                replyToMessageId = message.messageId,
-                text = builder.toString().trim()
+    val ruleButtons = getRules(Config.database, message.chat.id, 15).map {
+        listOf(
+            InlineKeyboardButton.CallbackData(
+                it.name, "warn,${message.chat.id},${warnVictimUsername},${it.id}"
             )
-        } else {
-            bot.sendMessage(
-                chatId = message.chatId(),
-                replyToMessageId = message.messageId,
-                text = "Ни одной цитаты в таблице не найдено."
-            )
-        }
+        )
     }
-}
 
-val addQuoteCommand: HandleCommand = {
-    val submitterId = message.from?.id ?: throw IllegalArgumentException("Невозможно определить отправителя сообщения.")
-    try {
-        message.text?.let { text ->
-            val groups = ADD_QUOTE_COMMAND_REGEX.find(text)?.groups
-            // println(groups)
-            val authorName = groups?.get(2)?.value ?:
-                throw IllegalArgumentException("Невозможно определить автора цитаты.")
-            val quote = groups[3]?.value ?:
-                throw IllegalArgumentException("Невозможно определить текст цитаты.")
-
-            transaction {
-                Quotes.insert {
-                    it[Quotes.submitterId] = submitterId
-                    it[Quotes.authorName] = authorName
-                    it[Quotes.quote] = quote
-                }
-            }
-        }
-    } catch (e: Exception) {
-        when (e) {
-            is IllegalArgumentException -> {
-                bot.sendMessage(
-                    chatId = message.chatId(),
-                    replyToMessageId = message.messageId,
-                    text = """
-                        Невозможно сохранить цитату из-за некорректного ввода данных.
-                        Проверьте, что цитата введена в формате: `(автор): (текст цитаты)`.
-                    """.trimIndent(),
-                    parseMode = ParseMode.MARKDOWN
-                )
-            }
-            is SQLException -> {
-                bot.sendMessage(
-                    chatId = message.chatId(),
-                    replyToMessageId = message.messageId,
-                    text = """
-                        Невозможно сохранить цитату в базе данных.
-                        Возможно, цитата с таким автором и именем уже существует.
-                    """.trimIndent()
-                )
-            }
-            else -> throw e
-        }
-    }
-}
-
-val deleteQuotesCommand: HandleCommand = {
-    val submitterId = message.from?.id ?: throw IllegalArgumentException("Невозможно определить отправителя сообщения.")
-
-    val deletedRowCount = transaction {
-        Quotes.deleteWhere { Quotes.submitterId eq submitterId }
-    }
+    val markup = InlineKeyboardMarkup.create(ruleButtons)
 
     bot.sendMessage(
         chatId = message.chatId(),
         replyToMessageId = message.messageId,
-        text = "Все ваши цитаты успешно удалены (количество: $deletedRowCount)"
+        text = "Выберите название правила:",
+        replyMarkup = markup
     )
+}
+
+val warnCallbackHandler: HandleCallbackQuery = outer@{
+    val data = callbackQuery.data.split(",")
+
+    if (data.size != 4 || data[0] != "warn") {
+        return@outer
+    }
+
+    val chatId = data[1].toLongOrNull()
+    val victimUsername = data[2]
+    val ruleId = data[3].toLongOrNull()
+
+    if (chatId == null || ruleId == null) {
+        return@outer
+    }
+
+    getRuleById(Config.database, ruleId)?.let { rule ->
+        bot.sendMessage(
+            chatId = ChatId.fromId(chatId),
+            text = """
+                $victimUsername, вам вынесено предупреждение!
+                
+                По мнению сообщества, вы нарушили правило:
+                
+                ${rule.description}
+            """.trimIndent()
+        )
+    }
+}
+
+val addRuleCommand: HandleCommand = ownerProtectedCommand {
+    try {
+        message.text?.let { text ->
+            NEW_RULE_REGEX.matchEntire(text)?.let { match ->
+                if (match.groupValues.size != 4) {
+                    throw IllegalArgumentException("Неправильное число параметров.")
+                }
+
+                val name = match.groupValues[2]
+                val description = match.groupValues[3]
+
+                addRule(Config.database, message.chat.id, name, description)
+
+                bot.sendMessage(
+                    chatId = message.chatId(),
+                    replyToMessageId = message.messageId,
+                    text = """Добавлено правило.
+                        |
+                        |Название правила:
+                        |$name
+                        |
+                        |Описание правила:
+                        |$description
+                    """.trimMargin()
+                )
+            }
+        } ?: throw IllegalArgumentException(
+            "Не удалось получить текст сообщения или он представлен в неверном формате."
+        )
+    } catch (e: Exception) {
+        val errorMessage = when (e) {
+            is IllegalArgumentException -> """
+                Неверный формат правила. Попробуйте использовать следующий формат: ```
+                /add_rule <имя правила>
+                <описание правила>
+                ``` (не забудьте отбить строку между именем и описанием)
+                """.trimIndent()
+
+            is SQLException -> """
+                Произошла ошибка при выполнении запроса к базе данных.
+                Попробуйте повторить попытку позже.
+                Также убедитесь, что правила с таким названием ещё нет и название правила не длиннее 64 символов.
+                """.trimIndent()
+
+            else -> "Произошла неизвестная ошибка."
+        }
+
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = errorMessage,
+            parseMode = ParseMode.MARKDOWN
+        )
+    }
+
 }
 
 fun interjectionCommand(interjection: Interjection): HandleCommand = {
@@ -220,4 +180,23 @@ fun interjectionCommand(interjection: Interjection): HandleCommand = {
         replyToMessageId = message.replyToMessage?.messageId,
         replyMarkup = null
     )
+}
+
+/**
+ * Wrapper for [HandleCallbackQuery] that can be used as a lambda.
+ * Restricts access to the wrapped commands only to the bot owner.
+ *
+ * @param command command to execute
+ */
+fun ownerProtectedCommand(command: HandleCommand): HandleCommand = {
+    if (message.from?.id == Config.privateConfig.ownerId) {
+        command()
+    } else {
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = "\uD83D\uDD12 Команду может вызывать только владелец бота.",
+            parseMode = ParseMode.MARKDOWN
+        )
+    }
 }
