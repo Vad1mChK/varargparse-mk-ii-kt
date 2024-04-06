@@ -48,10 +48,9 @@ val helpCommand: HandleCommand = {
 }
 
 val warnCommand: HandleCommand = outer@{
-    val warnVictimUsername = args.firstOrNull { USERNAME_REGEX.matchEntire(it) != null }
-        ?: (message.replyToMessage?.from?.username?.let { "@$it" })
+    val warnVictimUserId = message.replyToMessage?.from?.id
 
-    if (warnVictimUsername == null) {
+    if (warnVictimUserId == null) {
         bot.sendMessage(
             chatId = message.chatId(),
             replyToMessageId = message.messageId,
@@ -66,13 +65,22 @@ val warnCommand: HandleCommand = outer@{
         return@outer
     }
 
-    val ruleButtons = getRules(Config.database, message.chat.id, 15).map {
-        listOf(
-            InlineKeyboardButton.CallbackData(
-                it.name, "warn,${message.chat.id},${warnVictimUsername},${it.id}"
+    val ruleButtons = getRules(Config.database, message.chat.id, 15)
+        .ifEmpty {
+            bot.sendMessage(
+                chatId = message.chatId(),
+                replyToMessageId = message.messageId,
+                text = "⭕\uFE0F Для этого чата не установлено ни одного правила."
             )
-        )
-    }
+            return@outer
+        }
+        .map {
+            listOf(
+                InlineKeyboardButton.CallbackData(
+                    it.name, "warn,${message.chat.id},${warnVictimUserId},${it.id}"
+                )
+            )
+        }
 
     val markup = InlineKeyboardMarkup.create(ruleButtons)
 
@@ -91,24 +99,23 @@ val warnCallbackHandler: HandleCallbackQuery = outer@{
         return@outer
     }
 
-    val chatId = data[1].toLongOrNull()
-    val victimUsername = data[2]
-    val ruleId = data[3].toLongOrNull()
-
-    if (chatId == null || ruleId == null) {
-        return@outer
-    }
+    val chatId = data[1].toLongOrNull() ?: return@outer
+    val victimId = data[2].toLongOrNull() ?: return@outer
+    val ruleId = data[3].toLongOrNull() ?: return@outer
 
     getRuleById(Config.database, ruleId)?.let { rule ->
+        val user = bot.getChatMember(ChatId.fromId(chatId), victimId).getOrNull()?.user
+            ?: return@outer
         bot.sendMessage(
             chatId = ChatId.fromId(chatId),
             text = """
-                $victimUsername, вам вынесено предупреждение!
+                ⚠️ ${user.mentionMarkdown()}, вам вынесено предупреждение!
                 
-                По мнению сообщества, вы нарушили правило:
+                По мнению сообщества, вы нарушили *правило*:
                 
                 ${rule.description}
-            """.trimIndent()
+            """.trimIndent(),
+            parseMode = ParseMode.MARKDOWN
         )
     }
 }
@@ -131,12 +138,13 @@ val addRuleCommand: HandleCommand = ownerProtectedCommand {
                     replyToMessageId = message.messageId,
                     text = """Добавлено правило.
                         |
-                        |Название правила:
+                        |*Название правила*:
                         |$name
                         |
-                        |Описание правила:
+                        |*Описание правила*:
                         |$description
-                    """.trimMargin()
+                    """.trimMargin(),
+                    parseMode = ParseMode.MARKDOWN
                 )
             }
         } ?: throw IllegalArgumentException(
