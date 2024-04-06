@@ -4,8 +4,10 @@ import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
 import com.github.kotlintelegrambot.dispatcher.callbackQuery
 import com.github.kotlintelegrambot.dispatcher.command
+import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.newChatMembers
-import org.vad1mchk.varargparse.mk2.commands.*
+import com.github.kotlintelegrambot.extensions.filters.Filter
+import org.vad1mchk.varargparse.mk2.handlers.*
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.connectToDatabase
 import org.vad1mchk.varargparse.mk2.database.initializeDatabase
@@ -35,7 +37,25 @@ fun main(args: Array<String>) {
 
             command("add_rule", addRuleCommand)
 
+            command("stats", statsCommand)
+
             newChatMembers(greet)
+
+            message(
+                Filter.Group and Filter.Custom { this.newChatMembers == null && this.leftChatMember == null },
+                statsMessageHandler
+            )
+
+            message(
+                Filter.Group and Filter.Custom { this.newChatMembers != null },
+                statsJoinGroupHandler
+            )
+
+            message(
+                Filter.Group and Filter.Custom { this.leftChatMember != null },
+                statsLeaveGroupHandler
+            )
+
             callbackQuery(data = null, greetCallbackHandler)
         }
     }

@@ -1,4 +1,4 @@
-package org.vad1mchk.varargparse.mk2.commands
+package org.vad1mchk.varargparse.mk2.handlers
 
 import com.github.kotlintelegrambot.dispatcher.handlers.HandleCallbackQuery
 import com.github.kotlintelegrambot.dispatcher.handlers.HandleNewChatMembers
@@ -92,8 +92,6 @@ val greetCallbackHandler: HandleCallbackQuery = outer@{
         return@outer
     }
 
-    println(data)
-
     val chatId = data[1].toLongOrNull() ?: return@outer
     val questionName = data[2]
     val answerName = data[3]
@@ -119,8 +117,6 @@ val greetCallbackHandler: HandleCallbackQuery = outer@{
 
     if (isInitial) {
         val controlQuestion = controlQuestions.random()
-
-        println(question)
 
         val keyboardMarkup = InlineKeyboardMarkup.create(
             controlQuestion.answers.map { answer ->

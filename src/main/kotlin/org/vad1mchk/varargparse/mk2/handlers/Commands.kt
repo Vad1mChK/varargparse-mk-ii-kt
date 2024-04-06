@@ -1,4 +1,4 @@
-package org.vad1mchk.varargparse.mk2.commands
+package org.vad1mchk.varargparse.mk2.handlers
 
 import com.github.kotlintelegrambot.dispatcher.handlers.HandleCallbackQuery
 import com.github.kotlintelegrambot.dispatcher.handlers.HandleCommand
@@ -7,9 +7,7 @@ import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import org.vad1mchk.varargparse.mk2.config.Config
-import org.vad1mchk.varargparse.mk2.database.addRule
-import org.vad1mchk.varargparse.mk2.database.getRuleById
-import org.vad1mchk.varargparse.mk2.database.getRules
+import org.vad1mchk.varargparse.mk2.database.*
 import org.vad1mchk.varargparse.mk2.entities.Interjection
 import org.vad1mchk.varargparse.mk2.util.chatId
 import org.vad1mchk.varargparse.mk2.util.fullName
@@ -109,9 +107,7 @@ val warnCallbackHandler: HandleCallbackQuery = outer@{
         bot.sendMessage(
             chatId = ChatId.fromId(chatId),
             text = """
-                ⚠️ ${user.mentionMarkdown()}, вам вынесено предупреждение!
-                
-                По мнению сообщества, вы нарушили *правило*:
+                ⚠️ ${user.mentionMarkdown()}, пожалуйста, вспомните наше *правило*:
                 
                 ${rule.description}
             """.trimIndent(),
@@ -190,9 +186,51 @@ fun interjectionCommand(interjection: Interjection): HandleCommand = {
     )
 }
 
+val statsCommand: HandleCommand = outer@{
+    deleteExcessRows(Config.database)
+    val topUsers = getTopUserIdsByChatId(
+        Config.database,
+        message.chat.id,
+        limit = 5
+    )
+        .filter { it.first != null }
+
+    val joinCount = getJoinCountByChatId(Config.database, message.chat.id)
+    val leaveCount = getLeaveCountByChatId(Config.database, message.chat.id)
+    val messageCount = getMessageCountByChatId(Config.database, message.chat.id)
+
+    val medals = arrayOf("\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "\uD83C\uDFC5", "\uD83C\uDF96")
+
+    val topUsersText = topUsers.mapIndexed { index, (userId, count) ->
+        if (userId == null) return@outer
+        "${index + 1}) ${
+            bot.getChatMember(message.chatId(), userId).getOrNull()?.user?.mentionMarkdown()?: "незнакомец"
+        }: $count сообщ. ${if (index < medals.size) medals[index] else ""}"
+    }.joinToString("\n")
+
+    bot.sendMessage(
+        chatId = message.chatId(),
+        replyToMessageId = message.messageId,
+        text = """
+            |*Статистика за последние сутки, последние $EVENTS_MAX_COUNT обновлений*:
+            |
+            |_Вступило в клуб_: $joinCount
+            |
+            |_Покинуло клуб_: $leaveCount
+            |
+            |_Топ-5 членов клуба по активности_:
+            |
+            |${topUsersText}
+            |
+            |_Общее число сообщений за последние сутки_: $messageCount
+        """.trimMargin(),
+        parseMode = ParseMode.MARKDOWN
+    )
+}
+
 /**
  * Wrapper for [HandleCallbackQuery] that can be used as a lambda.
- * Restricts access to the wrapped commands only to the bot owner.
+ * Restricts access to the wrapped handlers only to the bot owner.
  *
  * @param command command to execute
  */
