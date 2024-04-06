@@ -1,4 +1,5 @@
-# Create your private_config.yaml in the directory you want to place the jar in
+# Create your private_config.yaml in the directory you want to place the jar in.
+# Add your private_config.yaml file to .gitignore, so you won't accidentally publish your private information.
 token: 'TOKEN' # Replace with your actual Telegram bot token
 owner_id: 2147483647 # Replace with your Telegram ID
 database:
@@ -6,4 +7,5 @@ database:
   credentials: !<username_password> # !<username_password> or !<pgpass>
     username: tf2soldier
     password: 111ummm...1
-    # If using pgpass, don't specify password
+    # If using pgpass, probably don't specify password.
+    # If pgpass doesn't work (likely to happen), use the username_password option instead.

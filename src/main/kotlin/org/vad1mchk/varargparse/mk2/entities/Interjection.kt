@@ -2,44 +2,25 @@ package org.vad1mchk.varargparse.mk2.entities
 
 import kotlinx.serialization.Serializable
 
+
 /**
- * An [enum] class that represents interjections.
+ * Enum class representing various interjections that can be used in a conversation or argument.
  *
- * @param fileId the unique id of the sticker file associated with the interjection
- * @param text the text of the interjection
+ * @property OBJECTION Represents an objection or disagreement.
+ * @property HOLD_IT Used to pause or stop a conversation temporarily.
+ * @property TAKE_THAT A response to a challenge or accusation.
+ * @property GOTCHA A phrase used to express that someone has been caught in a mistake or contradiction.
+ * @property EUREKA A phrase used to express sudden realization or discovery.
+ * @property NOT_SO_FAST A phrase used to express disagreement or challenge to someone's statement.
+ * @property OVERRULED A phrase used to overrule or reject someone's statement or argument.
  */
 @Serializable
-enum class Interjection(
-    val fileId: String,
-    val text: String
-) {
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    OBJECTION("CAACAgIAAxkBAAEK62Nlch09Qmi0cwAB-wc6es4LhmtPZWsAAsISAAL7orBIhQQHP2DECCszBA", "Objection!"),
-
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    HOLD_IT("CAACAgIAAxkBAAEK62Vlch1Qx1I45fWDuf-JZgQyoLHZRAACCxIAApclsEhM7CMSW0ytVTME", "Hold it!"),
-
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    TAKE_THAT("CAACAgIAAxkBAAEK62dlch1cXJZx1xAW-V_dt2ninfxR2wACmhAAAiWzqEgY6KJhqE3eATME", "Take that!"),
-
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    EUREKA("CAACAgIAAxkBAAEK62llch1uFQGIvH1uzJQYt2jkYLXPwwAC9xEAAreIsUh0wAZZkvqwIDME", "Eureka!"),
-
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    NOT_SO_FAST("CAACAgIAAxkBAAEK621lch16bf8qU0xvX_kzjayq5wZa1gAC_A4AAm8DqUg9cxT09XdkAjME", "Not so fast!"),
-
-    /**
-     * An instance of [Interjection] with the given [fileId] and [text].
-     */
-    OVERRULED("CAACAgIAAxkBAAEK629lch2CFWtZ3vLxKXREB-hx9pte4wACQhAAAp8LsEiond0F3P-IfTME", "Overruled!")
+enum class Interjection {
+    OBJECTION,
+    HOLD_IT,
+    TAKE_THAT,
+    GOTCHA,
+    EUREKA,
+    NOT_SO_FAST,
+    OVERRULED,
 }

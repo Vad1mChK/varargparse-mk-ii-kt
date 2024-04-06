@@ -2,24 +2,28 @@ interjections:
   OBJECTION:
     name: 'Objection!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK62Nlch09Qmi0cwAB-wc6es4LhmtPZWsAAsISAAL7orBIhQQHP2DECCszBA'
+      sticker: 'CAACAgIAAxkBAAEC0W1mEXXicYpqmiQvqb_Hq2kGv-QKOgACLUwAAi-zkEgYqLk7CJa2QjQE'
   HOLD_IT:
     name: 'Hold it!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK62Vlch1Qx1I45fWDuf-JZgQyoLHZRAACCxIAApclsEhM7CMSW0ytVTME'
+      sticker: 'CAACAgIAAxkBAAEC0W9mEXXisvq_RfdSTJ_XxR39tKO6bgACV0MAAlpDiUjT__WTtz1DcDQE'
   TAKE_THAT:
     name: 'Take that!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK62dlch1cXJZx1xAW-V_dt2ninfxR2wACmhAAAiWzqEgY6KJhqE3eATME'
+      sticker: 'CAACAgIAAxkBAAEC0XNmEXXj71deJFSUXfm4cUjPN2mFOgACJE8AAtz5kUjp9nJJ6OrdZTQE'
+  GOTCHA:
+    name: 'Gotcha!'
+    file_ids:
+      sticker: 'CAACAgIAAxkBAAEC0V5mEXUa7A0uzCtFXjIjcWZHTQ669wACj00AAhSGkUiXRVm23UQt6TQE'
   EUREKA:
     name: 'Eureka!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK62llch1uFQGIvH1uzJQYt2jkYLXPwwAC9xEAAreIsUh0wAZZkvqwIDME'
+      sticker: 'CAACAgIAAxkBAAEC0XZmEXXkIX3tByG1_9r-MpwSa4MaEwACn0oAAlfyiUgUBH0VNsypETQE'
   NOT_SO_FAST:
     name: 'Not so fast!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK621lch16bf8qU0xvX_kzjayq5wZa1gAC_A4AAm8DqUg9cxT09XdkAjME'
+      sticker: 'CAACAgIAAxkBAAEC0XhmEXXkdIkSVXeI0JEMoFxPTTG6hwAC3k0AAnq7kEgyvEdss0c8CzQE'
   OVERRULED:
     name: 'Overruled!'
     file_ids:
-      sticker: 'CAACAgIAAxkBAAEK629lch2CFWtZ3vLxKXREB-hx9pte4wACQhAAAp8LsEiond0F3P-IfTME'
+      sticker: 'CAACAgIAAxkBAAEC0XpmEXXlf084cuHdXO2-aceaIkJeRwACjUkAAtbvkEhh6h0JZ0EOqDQE'
