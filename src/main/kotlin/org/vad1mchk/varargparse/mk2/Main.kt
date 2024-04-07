@@ -10,15 +10,15 @@ import com.github.kotlintelegrambot.extensions.filters.Filter
 import org.vad1mchk.varargparse.mk2.handlers.*
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.connectToDatabase
-import org.vad1mchk.varargparse.mk2.database.initializeDatabase
+import org.vad1mchk.varargparse.mk2.database.initialize
 import org.vad1mchk.varargparse.mk2.entities.Interjection
 
 fun main(args: Array<String>) {
     Config.loadPrivateConfigFromYaml(fileName = "private_config.yaml")
     Config.loadPublicConfigFromYaml(fileName = "public_config.yaml")
 
-    val database = connectToDatabase()
-    initializeDatabase(database)
+    Config.database = connectToDatabase()
+    Config.database.initialize()
 
     val bot = bot {
         token = Config.privateConfig.token
@@ -38,6 +38,12 @@ fun main(args: Array<String>) {
             command("add_rule", addRuleCommand)
 
             command("stats", statsCommand)
+
+            command("toggle_history", toggleHistoryCommand)
+
+            command("clear_my_history", clearMyHistoryCommand)
+
+            command("clear_my_history", clearAllHistoryCommand)
 
             newChatMembers(greet)
 

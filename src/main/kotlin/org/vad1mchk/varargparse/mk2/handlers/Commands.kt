@@ -6,6 +6,7 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
+import org.jetbrains.exposed.sql.Database
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.*
 import org.vad1mchk.varargparse.mk2.entities.Interjection
@@ -63,7 +64,7 @@ val warnCommand: HandleCommand = outer@{
         return@outer
     }
 
-    val ruleButtons = getRules(Config.database, message.chat.id, 15)
+    val ruleButtons = Config.database.getRules(message.chat.id, 15)
         .ifEmpty {
             bot.sendMessage(
                 chatId = message.chatId(),
@@ -101,7 +102,7 @@ val warnCallbackHandler: HandleCallbackQuery = outer@{
     val victimId = data[2].toLongOrNull() ?: return@outer
     val ruleId = data[3].toLongOrNull() ?: return@outer
 
-    getRuleById(Config.database, ruleId)?.let { rule ->
+    Config.database.getRuleById(ruleId)?.let { rule ->
         val user = bot.getChatMember(ChatId.fromId(chatId), victimId).getOrNull()?.user
             ?: return@outer
         bot.sendMessage(
@@ -116,7 +117,7 @@ val warnCallbackHandler: HandleCallbackQuery = outer@{
     }
 }
 
-val addRuleCommand: HandleCommand = ownerProtectedCommand {
+val addRuleCommand: HandleCommand = adminProtectedCommand {
     try {
         message.text?.let { text ->
             NEW_RULE_REGEX.matchEntire(text)?.let { match ->
@@ -127,7 +128,7 @@ val addRuleCommand: HandleCommand = ownerProtectedCommand {
                 val name = match.groupValues[2]
                 val description = match.groupValues[3]
 
-                addRule(Config.database, message.chat.id, name, description)
+                Config.database.addRule(message.chat.id, name, description)
 
                 bot.sendMessage(
                     chatId = message.chatId(),
@@ -171,7 +172,6 @@ val addRuleCommand: HandleCommand = ownerProtectedCommand {
             parseMode = ParseMode.MARKDOWN
         )
     }
-
 }
 
 fun interjectionCommand(interjection: Interjection): HandleCommand = {
@@ -187,17 +187,16 @@ fun interjectionCommand(interjection: Interjection): HandleCommand = {
 }
 
 val statsCommand: HandleCommand = outer@{
-    deleteExcessRows(Config.database)
-    val topUsers = getTopUserIdsByChatId(
-        Config.database,
+    Config.database.deleteExcessRows()
+    val topUsers = Config.database.getTopUserIdsByChatId(
         message.chat.id,
         limit = 5
     )
         .filter { it.first != null }
 
-    val joinCount = getJoinCountByChatId(Config.database, message.chat.id)
-    val leaveCount = getLeaveCountByChatId(Config.database, message.chat.id)
-    val messageCount = getMessageCountByChatId(Config.database, message.chat.id)
+    val joinCount = Config.database.getJoinCountByChatId(message.chat.id)
+    val leaveCount = Config.database.getLeaveCountByChatId(message.chat.id)
+    val messageCount = Config.database.getMessageCountByChatId(message.chat.id)
 
     val medals = arrayOf("\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "\uD83C\uDFC5", "\uD83C\uDF96")
 
@@ -228,20 +227,68 @@ val statsCommand: HandleCommand = outer@{
     )
 }
 
-/**
- * Wrapper for [HandleCallbackQuery] that can be used as a lambda.
- * Restricts access to the wrapped handlers only to the bot owner.
- *
- * @param command command to execute
- */
-fun ownerProtectedCommand(command: HandleCommand): HandleCommand = {
-    if (message.from?.id == Config.privateConfig.ownerId) {
+val toggleHistoryCommand: HandleCommand = adminProtectedCommand {
+    val chatId = message.chat.id
+
+    if (Config.database.isHistoryEnabledForChat(chatId)) {
+        Config.database.setHistoryEnabledForChat(chatId, false)
+        bot.sendMessage(
+            chatId = message.chatId(),
+            text = "Статистика сообщений отключена."
+        )
+    } else {
+        Config.database.setHistoryEnabledForChat(chatId, true)
+        bot.sendMessage(
+            chatId = message.chatId(),
+            text = "Статистика сообщений включена."
+        )
+    }
+}
+
+val clearMyHistoryCommand: HandleCommand = outer@{
+    val userId = message.from?.id
+
+    if (userId == null) {
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = "Не удалось найти пользователя, для которого нужно очистить историю."
+        )
+        return@outer
+    }
+
+    Config.database.deleteEventsByUserIdAndChatId(userId, message.chat.id)
+
+    bot.sendMessage(
+        chatId = message.chatId(),
+        replyToMessageId = message.messageId,
+        text = "История ваших сообщений в клубе успешно очищена."
+    )
+}
+
+val clearAllHistoryCommand: HandleCommand = adminProtectedCommand {
+    Config.database.deleteEventsByChatId(message.chat.id)
+
+    bot.sendMessage(
+        chatId = message.chatId(),
+        replyToMessageId = message.messageId,
+        text = "История событий в клубе успешно очищена."
+    )
+}
+
+fun adminProtectedCommand(command: HandleCommand): HandleCommand = {
+    val isSenderAdmin = bot.getChatAdministrators(message.chatId())
+        .getOrNull()
+        ?.any { it.user.id == message.from?.id }
+        ?: false
+
+    if (isSenderAdmin) {
         command()
     } else {
         bot.sendMessage(
             chatId = message.chatId(),
             replyToMessageId = message.messageId,
-            text = "\uD83D\uDD12 Команду может вызывать только владелец бота.",
+            text = "\uD83D\uDD12 Команду может вызывать только админ группы.",
             parseMode = ParseMode.MARKDOWN
         )
     }

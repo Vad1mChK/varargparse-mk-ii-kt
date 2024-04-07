@@ -9,6 +9,7 @@ import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.entities.Event
 import org.vad1mchk.varargparse.mk2.database.entities.Rule
 import org.vad1mchk.varargparse.mk2.database.tables.Events
+import org.vad1mchk.varargparse.mk2.database.tables.ChatSettings
 import org.vad1mchk.varargparse.mk2.database.tables.Rules
 import org.vad1mchk.varargparse.mk2.entities.EventType
 import org.vad1mchk.varargparse.mk2.util.minus
@@ -35,25 +36,25 @@ fun connectToDatabase() = when (val creds = Config.privateConfig.database.creden
     }
 }
 
-fun initializeDatabase(database: Database) = transaction(database) {
+fun Database.initialize() = transaction(this) {
     addLogger(StdOutSqlLogger)
 
-    SchemaUtils.create(Rules, Events)
+    SchemaUtils.create(Rules, Events, ChatSettings)
 
-    Config.database = database
+    Config.database = this@initialize
 }
 
-fun getRuleById(database: Database, ruleId: Long): Rule? = transaction(database) {
+fun Database.getRuleById(ruleId: Long): Rule? = transaction(this) {
     Rule.findById(ruleId)
 }
 
-fun getRules(database: Database, chatId: Long, limit: Int? = null) = transaction(database) {
+fun Database.getRules(chatId: Long, limit: Int? = null) = transaction(this) {
     Rule.find { Rules.chatId eq chatId }
         .let { if (limit != null) it.limit(limit) else it }
         .toList()
 }
 
-fun addRule(database: Database, chatId: Long, name: String, description: String) = transaction(database) {
+fun Database.addRule(chatId: Long, name: String, description: String) = transaction(this) {
     Rule.new {
         this.name = name
         this.description = description
@@ -61,30 +62,13 @@ fun addRule(database: Database, chatId: Long, name: String, description: String)
     }
 }
 
-fun getEventsByChatId(
-    database: Database,
-    chatId: Long,
-    limit: Int = EVENTS_MAX_COUNT,
-    duration: Duration = 1.days
-) = transaction(database) {
-    Event
-        .find {
-            Events.chatId eq chatId and Events.createdAt.between(
-                LocalDateTime.now() - duration, LocalDateTime.now()
-            )
-        }
-        .limit(limit)
-        .toList()
-}
-
-fun addEvent(
-    database: Database,
+fun Database.addEvent(
     createdAt: LocalDateTime,
     chatId: Long,
     userId: Long?,
     joinCount: Int? = null,
     eventType: EventType = EventType.MESSAGE
-) = transaction(database) {
+) = transaction(this) {
     Event.new {
         this.createdAt = createdAt
         this.chatId = chatId
@@ -94,20 +78,18 @@ fun addEvent(
     }
 }
 
-fun getMessageCountByChatId(
-    database: Database,
+fun Database.getMessageCountByChatId(
     chatId: Long
-) = transaction(database) {
+) = transaction(this) {
     Event.find {
         (Events.eventType eq EventType.MESSAGE) and
         (Events.chatId eq chatId)
     }.count()
 }
 
-fun getJoinCountByChatId(
-    database: Database,
+fun Database.getJoinCountByChatId(
     chatId: Long
-) = transaction(database) {
+) = transaction(this) {
     val joinCount = Events.select(Events.joinCount.sum())
         .where {
             (Events.eventType eq EventType.JOIN_GROUP) and
@@ -118,10 +100,9 @@ fun getJoinCountByChatId(
     joinCount
 }
 
-fun getLeaveCountByChatId(
-    database: Database,
+fun Database.getLeaveCountByChatId(
     chatId: Long
-) = transaction(database) {
+) = transaction(this) {
     val leaveCount = Events.select(Events.id.count())
         .where {
             (Events.eventType eq EventType.LEAVE_GROUP) and
@@ -132,11 +113,10 @@ fun getLeaveCountByChatId(
     leaveCount
 }
 
-fun getTopUserIdsByChatId(
-    database: Database,
+fun Database.getTopUserIdsByChatId(
     chatId: Long,
     limit: Int = EVENTS_MAX_COUNT,
-) = transaction(database) {
+) = transaction(this) {
     Events
         .select(Events.userId, Events.id.count())
         .where {
@@ -151,11 +131,10 @@ fun getTopUserIdsByChatId(
         // Help complete
 }
 
-fun deleteExcessRows(
-    database: Database,
+fun Database.deleteExcessRows(
     keepCount: Int = EVENTS_MAX_COUNT,
     duration: Duration = 1.days
-) = transaction(database) {
+) = transaction(this) {
     // Count the total number of rows in the table
     val rowCount = Events.selectAll().count()
 
@@ -174,4 +153,31 @@ fun deleteExcessRows(
     }
 
     Events.deleteWhere { Events.createdAt less (LocalDateTime.now() - duration) }
+}
+
+fun Database.deleteEventsByUserIdAndChatId(userId: Long, chatId: Long) = transaction(this) {
+    Events.deleteWhere {
+        (Events.userId eq userId) and
+        (Events.chatId eq chatId)
+    }
+}
+
+fun Database.deleteEventsByChatId(chatId: Long) = transaction(this) {
+    Events.deleteWhere {
+        (Events.chatId eq chatId)
+    }
+}
+
+fun Database.isHistoryEnabledForChat(chatId: Long) = transaction(this) {
+    ChatSettings
+        .selectAll()
+        .where { (ChatSettings.chatId eq chatId) and (ChatSettings.historyEnabled) }
+       .any()
+}
+
+fun Database.setHistoryEnabledForChat(chatId: Long, enabled: Boolean) = transaction(this) {
+    ChatSettings.upsert(where = { ChatSettings.chatId eq chatId }) {
+        it[ChatSettings.chatId] = chatId
+        it[historyEnabled] = enabled
+    }
 }
