@@ -7,11 +7,11 @@ import com.github.kotlintelegrambot.dispatcher.command
 import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.newChatMembers
 import com.github.kotlintelegrambot.extensions.filters.Filter
-import org.vad1mchk.varargparse.mk2.handlers.*
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.connectToDatabase
 import org.vad1mchk.varargparse.mk2.database.initialize
 import org.vad1mchk.varargparse.mk2.entities.Interjection
+import org.vad1mchk.varargparse.mk2.handlers.*
 
 fun main(args: Array<String>) {
     Config.loadPrivateConfigFromYaml(fileName = "private_config.yaml")

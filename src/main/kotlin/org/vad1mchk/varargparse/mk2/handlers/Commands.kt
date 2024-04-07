@@ -6,7 +6,6 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
-import org.jetbrains.exposed.sql.Database
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.*
 import org.vad1mchk.varargparse.mk2.entities.Interjection
@@ -203,7 +202,7 @@ val statsCommand: HandleCommand = outer@{
     val topUsersText = topUsers.mapIndexed { index, (userId, count) ->
         if (userId == null) return@outer
         "${index + 1}) ${
-            bot.getChatMember(message.chatId(), userId).getOrNull()?.user?.mentionMarkdown()?: "незнакомец"
+            bot.getChatMember(message.chatId(), userId).getOrNull()?.user?.mentionMarkdown() ?: "незнакомец"
         }: $count сообщ. ${if (index < medals.size) medals[index] else ""}"
     }.joinToString("\n")
 

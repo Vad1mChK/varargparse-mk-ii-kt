@@ -120,9 +120,11 @@ val greetCallbackHandler: HandleCallbackQuery = outer@{
 
         val keyboardMarkup = InlineKeyboardMarkup.create(
             controlQuestion.answers.map { answer ->
-                listOf(InlineKeyboardButton.CallbackData(
-                    answer.value, "greet,${chatId},${controlQuestion.questionName},${answer.key}"
-                ))
+                listOf(
+                    InlineKeyboardButton.CallbackData(
+                        answer.value, "greet,${chatId},${controlQuestion.questionName},${answer.key}"
+                    )
+                )
             }.shuffled()
         )
 

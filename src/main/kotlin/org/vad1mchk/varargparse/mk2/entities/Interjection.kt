@@ -1,6 +1,7 @@
 package org.vad1mchk.varargparse.mk2.entities
 
 import kotlinx.serialization.Serializable
+import org.vad1mchk.varargparse.mk2.entities.Interjection.*
 
 
 /**

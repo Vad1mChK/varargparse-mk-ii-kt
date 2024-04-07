@@ -8,8 +8,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.entities.Event
 import org.vad1mchk.varargparse.mk2.database.entities.Rule
-import org.vad1mchk.varargparse.mk2.database.tables.Events
 import org.vad1mchk.varargparse.mk2.database.tables.ChatSettings
+import org.vad1mchk.varargparse.mk2.database.tables.Events
 import org.vad1mchk.varargparse.mk2.database.tables.Rules
 import org.vad1mchk.varargparse.mk2.entities.EventType
 import org.vad1mchk.varargparse.mk2.util.minus
@@ -83,7 +83,7 @@ fun Database.getMessageCountByChatId(
 ) = transaction(this) {
     Event.find {
         (Events.eventType eq EventType.MESSAGE) and
-        (Events.chatId eq chatId)
+                (Events.chatId eq chatId)
     }.count()
 }
 
@@ -93,7 +93,7 @@ fun Database.getJoinCountByChatId(
     val joinCount = Events.select(Events.joinCount.sum())
         .where {
             (Events.eventType eq EventType.JOIN_GROUP) and
-            (Events.chatId eq chatId)
+                    (Events.chatId eq chatId)
         }
         .singleOrNull()
         ?.get(Events.joinCount.sum()) ?: 0
@@ -106,7 +106,7 @@ fun Database.getLeaveCountByChatId(
     val leaveCount = Events.select(Events.id.count())
         .where {
             (Events.eventType eq EventType.LEAVE_GROUP) and
-            (Events.chatId eq chatId)
+                    (Events.chatId eq chatId)
         }
         .singleOrNull()
         ?.get(Events.id.count()) ?: 0
@@ -121,14 +121,14 @@ fun Database.getTopUserIdsByChatId(
         .select(Events.userId, Events.id.count())
         .where {
             (Events.chatId eq chatId) and
-            Events.userId.isNotNull() and
-            (Events.eventType eq EventType.MESSAGE)
+                    Events.userId.isNotNull() and
+                    (Events.eventType eq EventType.MESSAGE)
         }
         .groupBy(Events.userId)
         .orderBy(Events.id.count() to SortOrder.DESC)
         .limit(limit)
         .map { it[Events.userId] to it[Events.id.count()] }
-        // Help complete
+    // Help complete
 }
 
 fun Database.deleteExcessRows(
@@ -158,7 +158,7 @@ fun Database.deleteExcessRows(
 fun Database.deleteEventsByUserIdAndChatId(userId: Long, chatId: Long) = transaction(this) {
     Events.deleteWhere {
         (Events.userId eq userId) and
-        (Events.chatId eq chatId)
+                (Events.chatId eq chatId)
     }
 }
 
@@ -172,7 +172,7 @@ fun Database.isHistoryEnabledForChat(chatId: Long) = transaction(this) {
     ChatSettings
         .selectAll()
         .where { (ChatSettings.chatId eq chatId) and (ChatSettings.historyEnabled) }
-       .any()
+        .any()
 }
 
 fun Database.setHistoryEnabledForChat(chatId: Long, enabled: Boolean) = transaction(this) {
