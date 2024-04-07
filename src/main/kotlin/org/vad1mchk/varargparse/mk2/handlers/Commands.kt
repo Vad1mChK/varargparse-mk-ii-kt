@@ -191,7 +191,7 @@ val statsCommand: HandleCommand = outer@{
         message.chat.id,
         limit = 5
     )
-        .filter { it.first != null }
+        .filter { it.first != null && it.second > 0 }
 
     val joinCount = Config.database.getJoinCountByChatId(message.chat.id)
     val leaveCount = Config.database.getLeaveCountByChatId(message.chat.id)
@@ -199,12 +199,16 @@ val statsCommand: HandleCommand = outer@{
 
     val medals = arrayOf("\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "\uD83C\uDFC5", "\uD83C\uDF96")
 
-    val topUsersText = topUsers.mapIndexed { index, (userId, count) ->
-        if (userId == null) return@outer
-        "${index + 1}) ${
-            bot.getChatMember(message.chatId(), userId).getOrNull()?.user?.mentionMarkdown() ?: "незнакомец"
-        }: $count сообщ. ${if (index < medals.size) medals[index] else ""}"
-    }.joinToString("\n")
+    val topUsersText = if (topUsers.isNotEmpty()) {
+        topUsers.mapIndexed { index, (userId, count) ->
+            if (userId == null) return@outer
+            "${index + 1}) ${
+                bot.getChatMember(message.chatId(), userId).getOrNull()?.user?.mentionMarkdown() ?: "незнакомец"
+            }: $count сообщ. ${if (index < medals.size) medals[index] else ""}"
+        }.joinToString("\n")
+    } else {
+        "Никто не написал ни одного сообщения за последние сутки или история была отключена."
+    }
 
     bot.sendMessage(
         chatId = message.chatId(),
