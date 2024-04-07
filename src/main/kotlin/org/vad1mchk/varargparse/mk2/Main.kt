@@ -43,7 +43,7 @@ fun main(args: Array<String>) {
 
             command("clear_my_history", clearMyHistoryCommand)
 
-            command("clear_my_history", clearAllHistoryCommand)
+            command("clear_all_history", clearAllHistoryCommand)
 
             newChatMembers(greet)
 

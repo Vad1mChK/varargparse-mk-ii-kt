@@ -235,12 +235,14 @@ val toggleHistoryCommand: HandleCommand = adminProtectedCommand {
         Config.database.setHistoryEnabledForChat(chatId, false)
         bot.sendMessage(
             chatId = message.chatId(),
+            replyToMessageId = message.messageId,
             text = "Статистика сообщений отключена."
         )
     } else {
         Config.database.setHistoryEnabledForChat(chatId, true)
         bot.sendMessage(
             chatId = message.chatId(),
+            replyToMessageId = message.messageId,
             text = "Статистика сообщений включена."
         )
     }
