@@ -68,7 +68,7 @@ val helpCommand: HandleCommand = outer@{
         val helpText = """
             |*Название*: `${help.name}`
             |
-            |*Разрешения*: ${help.permissions}
+            |*Разрешения*: ${help.permissions.representation}
             |
             |*Описание*: 
             |${help.description}
