@@ -3,7 +3,6 @@ package org.vad1mchk.varargparse.mk2.database
 import kotlinx.datetime.LocalDateTime
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.entities.Event
@@ -12,10 +11,7 @@ import org.vad1mchk.varargparse.mk2.database.tables.ChatSettings
 import org.vad1mchk.varargparse.mk2.database.tables.Events
 import org.vad1mchk.varargparse.mk2.database.tables.Rules
 import org.vad1mchk.varargparse.mk2.entities.EventType
-import org.vad1mchk.varargparse.mk2.util.minus
-import org.vad1mchk.varargparse.mk2.util.now
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
+import org.vad1mchk.varargparse.mk2.exceptions.MaxRuleCountExceededException
 
 const val EVENTS_MAX_COUNT = 16_384
 
@@ -62,6 +58,26 @@ fun Database.addRule(chatId: Long, name: String, description: String) = transact
     }
 }
 
+fun Database.addRuleIfNotExceedsLimit(
+    chatId: Long,
+    name: String,
+    description: String
+) = transaction(this) {
+    val currentCount = Rule.count(Rules.chatId eq chatId)
+
+    if (currentCount < Rules.MAX_RULES_COUNT_PER_CHAT) {
+        Rule.new {
+            this.name = name
+            this.description = description
+            this.chatId = chatId
+        }
+    } else {
+        throw MaxRuleCountExceededException(
+            "Cannot add more rules: max limit of rules (${Rules.MAX_RULES_COUNT_PER_CHAT}) exceeded."
+        )
+    }
+}
+
 fun Database.addEvent(
     createdAt: LocalDateTime,
     chatId: Long,
@@ -76,6 +92,27 @@ fun Database.addEvent(
         this.joinCount = joinCount
         this.eventType = eventType
     }
+}
+
+fun Database.addEventWithTruncation(
+    createdAt: LocalDateTime,
+    chatId: Long,
+    userId: Long?,
+    joinCount: Int? = null,
+    eventType: EventType = EventType.MESSAGE
+) = transaction(this) {
+    while (Events.selectAll().count() >= Events.MAX_EVENTS_COUNT) {
+        val oldestEvent = Events.selectAll()
+            .orderBy(Events.createdAt to SortOrder.ASC)
+            .limit(1)
+            .firstOrNull()
+
+        if (oldestEvent != null) {
+            Events.deleteWhere { Events.id eq oldestEvent[Events.id] }
+        }
+    }
+
+    this@addEventWithTruncation.addEvent(createdAt, chatId, userId, joinCount, eventType)
 }
 
 fun Database.getMessageCountByChatId(
@@ -129,30 +166,6 @@ fun Database.getTopUserIdsByChatId(
         .limit(limit)
         .map { it[Events.userId] to it[Events.id.count()] }
     // Help complete
-}
-
-fun Database.deleteExcessRows(
-    keepCount: Int = EVENTS_MAX_COUNT,
-    duration: Duration = 1.days
-) = transaction(this) {
-    // Count the total number of rows in the table
-    val rowCount = Events.selectAll().count()
-
-    if (rowCount > keepCount) {
-        // Find the ID of the last row to keep (the 16,384th row from the end based on timestamp)
-        val cutoffId = Events
-            .select(Events.id)
-            .orderBy(Events.createdAt to SortOrder.DESC)
-            .limit(keepCount)
-            .lastOrNull()
-
-        // Delete rows with IDs less than or equal to the cutoff ID
-        cutoffId?.let {
-            Events.deleteWhere { Events.id less cutoffId[Events.id] }
-        }
-    }
-
-    Events.deleteWhere { Events.createdAt less (LocalDateTime.now() - duration) }
 }
 
 fun Database.deleteEventsByUserIdAndChatId(userId: Long, chatId: Long) = transaction(this) {

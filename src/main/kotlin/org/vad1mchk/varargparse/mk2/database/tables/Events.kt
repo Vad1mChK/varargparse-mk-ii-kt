@@ -6,7 +6,9 @@ import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 import org.vad1mchk.varargparse.mk2.entities.EventType
 import org.vad1mchk.varargparse.mk2.util.now
 
-object Events : LongIdTable() {
+object Events : LongIdTable(name = "vap_events") {
+    const val MAX_EVENTS_COUNT = 16_384
+
     val createdAt = datetime("timestamp").clientDefault { LocalDateTime.now() }
     val chatId = long("chat_id")
     val userId = long("user_id").nullable()

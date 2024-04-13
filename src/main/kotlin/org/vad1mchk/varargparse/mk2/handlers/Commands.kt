@@ -8,7 +8,10 @@ import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.*
+import org.vad1mchk.varargparse.mk2.database.tables.Rules
 import org.vad1mchk.varargparse.mk2.entities.Interjection
+import org.vad1mchk.varargparse.mk2.exceptions.MaxRuleCountExceededException
+import org.vad1mchk.varargparse.mk2.handlers.help.CommandHelpHolder
 import org.vad1mchk.varargparse.mk2.util.chatId
 import org.vad1mchk.varargparse.mk2.util.fullName
 import org.vad1mchk.varargparse.mk2.util.mentionMarkdown
@@ -32,16 +35,63 @@ val startCommand: HandleCommand = {
     )
 }
 
-val helpCommand: HandleCommand = {
+val helpCommand: HandleCommand = outer@{
+    if (args.isEmpty()) {
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = bot
+                .getMyCommands()
+                .getOrNull()
+                ?.map { cmd -> "/${cmd.command}: ${cmd.description}" }
+                ?.joinToString("\n")
+                ?: "Не удалось получить список команд.",
+        )
+        return@outer
+    }
+
+    if (args.size > 1) {
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = """
+                Вы ввели несколько названий команд: ${args.joinToString { "\"$it\"" }}.
+                Введите только одно название команды (например, /help help), чтобы получить справку по этой команде.
+                """.trimIndent(),
+        )
+        return@outer
+    }
+
+    val commandName = args[0]
+
+    CommandHelpHolder[commandName]?.let { help ->
+        val helpText = """
+            |*Название*: `${help.name}`
+            |
+            |*Разрешения*: ${help.permissions}
+            |
+            |*Описание*: 
+            |${help.description}
+            |*Использование*: 
+            |${help.usage}
+        """.trimMargin()
+
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = helpText,
+            parseMode = ParseMode.MARKDOWN
+        )
+        return@outer
+    }
+
     bot.sendMessage(
         chatId = message.chatId(),
         replyToMessageId = message.messageId,
-        text = bot
-            .getMyCommands()
-            .getOrNull()
-            ?.map { cmd -> "/${cmd.command}: ${cmd.description}" }
-            ?.joinToString("\n")
-            ?: "Не удалось получить список команд.",
+        text = """
+            Не удалось найти команду с названием "$commandName".
+            Пожалуйста, введите /help без аргументов, чтобы запросить список доступных команд.
+            """.trimIndent()
     )
 }
 
@@ -61,7 +111,7 @@ val warnCommand: HandleCommand = outer@{
         return@outer
     }
 
-    val ruleButtons = Config.database.getRules(message.chat.id, 15)
+    val ruleButtons = Config.database.getRules(message.chat.id)
         .ifEmpty {
             bot.sendMessage(
                 chatId = message.chatId(),
@@ -114,6 +164,34 @@ val warnCallbackHandler: HandleCallbackQuery = outer@{
     }
 }
 
+val rulesCommand: HandleCommand = outer@{
+    val rules = Config.database.getRules(message.chat.id)
+
+    if (rules.isEmpty()) {
+        bot.sendMessage(
+            chatId = message.chatId(),
+            replyToMessageId = message.messageId,
+            text = "⭕\uFE0F Для этого чата не установлено ни одного правила."
+        )
+        return@outer
+    }
+
+    val rulesText = rules.mapIndexed { index, rule ->
+        """
+            ${index + 1}) *${rule.name}*
+            *Описание*: ${rule.description}
+            
+        """.trimIndent()
+    }.joinToString("\n")
+
+    bot.sendMessage(
+        chatId = message.chatId(),
+        replyToMessageId = message.messageId,
+        text = rulesText,
+        parseMode = ParseMode.MARKDOWN
+    )
+}
+
 val addRuleCommand: HandleCommand = adminProtectedCommand {
     try {
         message.text?.let { text ->
@@ -125,7 +203,7 @@ val addRuleCommand: HandleCommand = adminProtectedCommand {
                 val name = match.groupValues[2]
                 val description = match.groupValues[3]
 
-                Config.database.addRule(message.chat.id, name, description)
+                val rule = Config.database.addRuleIfNotExceedsLimit(message.chat.id, name, description)
 
                 bot.sendMessage(
                     chatId = message.chatId(),
@@ -152,6 +230,11 @@ val addRuleCommand: HandleCommand = adminProtectedCommand {
                 <описание правила>
                 ``` (не забудьте отбить строку между именем и описанием)
                 """.trimIndent()
+
+            is MaxRuleCountExceededException -> """
+                Невозможно добавить правило.
+                Достигнуто максимальное количество правил (${Rules.MAX_RULES_COUNT_PER_CHAT}).
+            """.trimIndent()
 
             is SQLException -> """
                 Произошла ошибка при выполнении запроса к базе данных.
@@ -184,7 +267,6 @@ fun interjectionCommand(interjection: Interjection): HandleCommand = {
 }
 
 val statsCommand: HandleCommand = outer@{
-    Config.database.deleteExcessRows()
     val topUsers = Config.database.getTopUserIdsByChatId(
         message.chat.id,
         limit = 5
@@ -205,14 +287,14 @@ val statsCommand: HandleCommand = outer@{
             }: $count сообщ. ${if (index < medals.size) medals[index] else ""}"
         }.joinToString("\n")
     } else {
-        "Никто не написал ни одного сообщения за последние сутки или история была отключена."
+        "Никто не написал ни одного сообщения или история была отключена или очищена."
     }
 
     bot.sendMessage(
         chatId = message.chatId(),
         replyToMessageId = message.messageId,
         text = """
-            |*Статистика за последние сутки, последние $EVENTS_MAX_COUNT обновлений*:
+            |*Статистика за последние $EVENTS_MAX_COUNT обновлений*:
             |
             |_Вступило в клуб_: $joinCount
             |
@@ -222,7 +304,7 @@ val statsCommand: HandleCommand = outer@{
             |
             |${topUsersText}
             |
-            |_Общее число сообщений за последние сутки_: $messageCount
+            |_Общее число сообщений_: $messageCount
         """.trimMargin(),
         parseMode = ParseMode.MARKDOWN
     )

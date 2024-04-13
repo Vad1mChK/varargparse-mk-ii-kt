@@ -34,7 +34,7 @@ object Config {
                 yamlString = it.readText()
             }
 
-            return Yaml.default.decodeFromString<T>(serializer, yamlString)
+            return Yaml.default.decodeFromString(serializer, yamlString)
         } catch (e: Exception) {
             when (e) {
                 is IOException -> {

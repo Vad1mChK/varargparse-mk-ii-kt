@@ -7,6 +7,7 @@ import com.github.kotlintelegrambot.dispatcher.command
 import com.github.kotlintelegrambot.dispatcher.message
 import com.github.kotlintelegrambot.dispatcher.newChatMembers
 import com.github.kotlintelegrambot.extensions.filters.Filter
+import com.github.kotlintelegrambot.logging.LogLevel
 import org.vad1mchk.varargparse.mk2.config.Config
 import org.vad1mchk.varargparse.mk2.database.connectToDatabase
 import org.vad1mchk.varargparse.mk2.database.initialize
@@ -34,6 +35,8 @@ fun main(args: Array<String>) {
 
             command("warn", warnCommand)
             callbackQuery(data = null, warnCallbackHandler)
+
+            command("rules", rulesCommand)
 
             command("add_rule", addRuleCommand)
 
@@ -64,6 +67,8 @@ fun main(args: Array<String>) {
 
             callbackQuery(data = null, greetCallbackHandler)
         }
+
+        logLevel = LogLevel.All()
     }
 
     bot.startPolling()
